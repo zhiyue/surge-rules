@@ -32,8 +32,8 @@ jobs:
       # 从上面的两个 custom_openai_1、custom_openai_2 和 custom_openai_3 获取规则, 并且合并到 ruleset/OpenAI.list 中, 要排序并且去重
       - name: Generate openai.txt file
         run: |
-            curl -L -o ruleset/OpenAI_final.list ${ custom_openai_1 }
-            curl -L >> ruleset/OpenAI_final.list ${ custom_openai_2 }
+            curl -L -o ruleset/OpenAI_final.list ${{ env.custom_openai_1 }}
+            curl -L >> ruleset/OpenAI_final.list ${{ env.custom_openai_2 }}
             cat ruleset/OpenAI.list >> ruleset/OpenAI_final.list
             sort -u ruleset/OpenAI_final.list -o ruleset/OpenAI_final.list
 
