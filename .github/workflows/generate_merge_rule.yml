@@ -40,7 +40,7 @@ jobs:
       - name: Move files to publish directory
         run: |
           mkdir -p publish
-          cp *.txt ./publish/
+          cp *.txt ./publish/ || true
           mv Ruleset ./publish/
 
       - name: Release and upload assets
