@@ -40,8 +40,8 @@ jobs:
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ env.custom_openai_1 }})
           if [ "$HTTP_CODE" != "404" ]; then
               curl -L -o Ruleset/OpenAI.txt ${{ env.custom_openai_1 }}
-              # 删除以#开头的注释行
-              sed -i '/^#/d' Ruleset/OpenAI.txt
+              # 删除所有以#开头的注释行
+              sed -i '/^[[:space:]]*#/d' Ruleset/OpenAI.txt
           else
               echo "custom_openai_1 返回404，跳过下载"
               touch Ruleset/OpenAI.txt
