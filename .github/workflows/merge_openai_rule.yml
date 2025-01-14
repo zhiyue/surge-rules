@@ -12,6 +12,7 @@ on:
       - main
     paths-ignore:
       - "**/README.md"
+
 jobs:
   build:
     name: Build
@@ -33,20 +34,18 @@ jobs:
         run: |
           mkdir -p Ruleset
 
-      # 从上面的两个 custom_openai_1、custom_openai_2 和 custom_openai_3 获取规则, 并且合并到 ruleset/OpenAI.list 中, 要排序并且去重
       - name: Generate openai.txt file
         run: |
-            # 检查 custom_openai_1 是否可访问
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ env.custom_openai_1 }})
-            if [ "$HTTP_CODE" != "404" ]; then
-                curl -L -o Ruleset/OpenAI.txt ${{ env.custom_openai_1 }}
-            else
-                echo "custom_openai_1 返回404，跳过下载"
-                touch Ruleset/OpenAI.txt
-            fi
-            # curl -L >> Ruleset/OpenAI.txt ${{ env.custom_openai_2 }}
-            sort -u Ruleset/OpenAI.txt -o Ruleset/OpenAI.txt
-      # Ruleset/OpenAI.txt 需要按照DOMAIN,DOMAIN-SUFFIX,DOMAIN-KEYWORD,IP-CIDR,IP-ASN的顺序重新排序
+          # 检查 custom_openai_1 是否可访问
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ env.custom_openai_1 }})
+          if [ "$HTTP_CODE" != "404" ]; then
+              curl -L -o Ruleset/OpenAI.txt ${{ env.custom_openai_1 }}
+          else
+              echo "custom_openai_1 返回404，跳过下载"
+              touch Ruleset/OpenAI.txt
+          fi
+          sort -u Ruleset/OpenAI.txt -o Ruleset/OpenAI.txt
+
       - name: Sort OpenAI rules by type
         run: |
           # 创建临时文件存储不同类型的规则
@@ -79,10 +78,10 @@ jobs:
             echo "# IP-ASN: $IP_ASN_COUNT"
             echo "# IP-CIDR: $IP_CIDR_COUNT"
             echo "# TOTAL: $TOTAL_COUNT"
-          } > Ruleset/OpenAI.txt
+          } > Ruleset/OpenAI.list
 
-          # 按顺序合并所有临时文件，其他类型规则放在最后
-          cat temp_domain.txt temp_domain_suffix.txt temp_domain_keyword.txt temp_ip_cidr.txt temp_ip_asn.txt temp_others.txt >> Ruleset/OpenAI.txt
+          # 按顺序合并所有临时文件
+          cat temp_domain.txt temp_domain_suffix.txt temp_domain_keyword.txt temp_ip_cidr.txt temp_ip_asn.txt temp_others.txt >> Ruleset/OpenAI.list
           
           # 删除临时文件
           rm temp_*.txt
@@ -90,8 +89,7 @@ jobs:
       - name: Move files to publish directory
         run: |
           mkdir -p publish
-          cp *.txt ./publish/ || true
-          mv Ruleset ./publish/
+          cp Ruleset/OpenAI.list ./publish/
 
       - name: Release and upload assets
         uses: softprops/action-gh-release@v1
