@@ -40,6 +40,8 @@ jobs:
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ env.custom_openai_1 }})
           if [ "$HTTP_CODE" != "404" ]; then
               curl -L -o Ruleset/OpenAI.txt ${{ env.custom_openai_1 }}
+              # 删除以#开头的注释行
+              sed -i '/^#/d' Ruleset/OpenAI.txt
           else
               echo "custom_openai_1 返回404，跳过下载"
               touch Ruleset/OpenAI.txt
@@ -88,8 +90,8 @@ jobs:
 
       - name: Move files to publish directory
         run: |
-          mkdir -p publish
-          cp Ruleset/OpenAI.list ./publish/
+          mkdir -p publish/Ruleset
+          cp Ruleset/OpenAI.list ./publish/Ruleset/
 
       - name: Release and upload assets
         uses: softprops/action-gh-release@v1
