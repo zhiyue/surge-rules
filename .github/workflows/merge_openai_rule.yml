@@ -1,4 +1,4 @@
-name: Generate OpenAI routing rules for Surge
+name: Generate AI routing rules for Surge
 
 permissions:
   contents: write
@@ -13,6 +13,9 @@ on:
     paths-ignore:
       - "**/README.md"
 
+env:
+  OPENAI_RULES_URL: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/OpenAI/OpenAI.list
+
 jobs:
   build:
     name: Build
@@ -20,109 +23,135 @@ jobs:
     steps:
       - name: Set variables
         run: |
-          echo "RELEASE_NAME=Released on $(date +%Y%m%d%H%M)" >> $GITHUB_ENV
-          echo "TAG_NAME=$(date +%Y%m%d%H%M)" >> $GITHUB_ENV
-          echo "custom_openai_1=https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/OpenAI/OpenAI.list" >> $GITHUB_ENV
-          # echo "custom_openai_2=https://raw.githubusercontent.com/hly0928/Proxy-profiles/master/Surge/Ruleset/OpenAI.list" >> $GITHUB_ENV
-
-        shell: bash
+          {
+            echo "RELEASE_NAME=Released on $(date +%Y%m%d%H%M)"
+            echo "TAG_NAME=$(date +%Y%m%d%H%M)"
+          } >> "$GITHUB_ENV"
 
       - name: Checkout the default branch
-        uses: actions/checkout@v3
+        uses: actions/checkout@v7
 
-      - name: Make directory
+      - name: Download OpenAI rules
         run: |
-          mkdir -p Ruleset
-
-      - name: Generate openai.txt file
-        run: |
-          # 检查 custom_openai_1 是否可访问
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ env.custom_openai_1 }})
-          if [ "$HTTP_CODE" != "404" ]; then
-              curl -L -o Ruleset/OpenAI.txt ${{ env.custom_openai_1 }}
-              # 删除所有以#开头的注释行
-              sed -i '/^[[:space:]]*#/d' Ruleset/OpenAI.txt
-          else
-              echo "custom_openai_1 返回404，跳过下载"
-              touch Ruleset/OpenAI.txt
+          set -euo pipefail
+          mkdir -p build Ruleset
+          curl --fail --show-error --silent --location --retry 3 \
+            "$OPENAI_RULES_URL" \
+            --output build/OpenAI.source
+          sed '/^[[:space:]]*#/d; /^[[:space:]]*$/d' build/OpenAI.source \
+            | sort -u > build/OpenAI.rules
+          if ! grep -Eq '^(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD|IP-CIDR|IP-ASN),' build/OpenAI.rules; then
+            echo "Downloaded OpenAI rules are empty or invalid" >&2
+            exit 1
           fi
-          sort -u Ruleset/OpenAI.txt -o Ruleset/OpenAI.txt
 
-      - name: Sort OpenAI rules by type
+      - name: Generate OpenAI and AI rulesets
         run: |
-          # 创建临时文件存储不同类型的规则
-          grep "^DOMAIN," Ruleset/OpenAI.txt > temp_domain.txt || true
-          grep "^DOMAIN-SUFFIX," Ruleset/OpenAI.txt > temp_domain_suffix.txt || true
-          grep "^DOMAIN-KEYWORD," Ruleset/OpenAI.txt > temp_domain_keyword.txt || true
-          grep "^IP-CIDR," Ruleset/OpenAI.txt > temp_ip_cidr.txt || true
-          grep "^IP-ASN," Ruleset/OpenAI.txt > temp_ip_asn.txt || true
-          
-          # 获取不属于上述类型的规则
-          grep -v "^DOMAIN,\|^DOMAIN-SUFFIX,\|^DOMAIN-KEYWORD,\|^IP-CIDR,\|^IP-ASN," Ruleset/OpenAI.txt > temp_others.txt || true
-          
-          # 统计各类型规则数量
-          DOMAIN_COUNT=$(wc -l < temp_domain.txt || echo 0)
-          DOMAIN_SUFFIX_COUNT=$(wc -l < temp_domain_suffix.txt || echo 0)
-          DOMAIN_KEYWORD_COUNT=$(wc -l < temp_domain_keyword.txt || echo 0)
-          IP_CIDR_COUNT=$(wc -l < temp_ip_cidr.txt || echo 0)
-          IP_ASN_COUNT=$(wc -l < temp_ip_asn.txt || echo 0)
-          OTHERS_COUNT=$(wc -l < temp_others.txt || echo 0)
-          TOTAL_COUNT=$((DOMAIN_COUNT + DOMAIN_SUFFIX_COUNT + DOMAIN_KEYWORD_COUNT + IP_CIDR_COUNT + IP_ASN_COUNT + OTHERS_COUNT))
-          
-          # 生成头部信息
-          {
-            echo "# OpenAI 路由规则"
-            echo "# REPO: https://github.com/zhiyue/surge-rules"
-            echo "# UPDATED: $(date '+%Y-%m-%d %H:%M:%S')"
-            echo "# DOMAIN: $DOMAIN_COUNT"
-            echo "# DOMAIN-KEYWORD: $DOMAIN_KEYWORD_COUNT"
-            echo "# DOMAIN-SUFFIX: $DOMAIN_SUFFIX_COUNT"
-            echo "# IP-ASN: $IP_ASN_COUNT"
-            echo "# IP-CIDR: $IP_CIDR_COUNT"
-            echo "# TOTAL: $TOTAL_COUNT"
-          } > Ruleset/OpenAI.list
+          set -euo pipefail
 
-          # 按顺序合并所有临时文件
-          cat temp_domain.txt temp_domain_suffix.txt temp_domain_keyword.txt temp_ip_cidr.txt temp_ip_asn.txt temp_others.txt >> Ruleset/OpenAI.list
-          
-          # 删除临时文件
-          rm temp_*.txt
+          cp build/OpenAI.rules build/ai.rules
+          {
+            echo "DOMAIN-SUFFIX,meta.ai"
+            echo "DOMAIN-SUFFIX,meta.com"
+            echo "DOMAIN-SUFFIX,metaaivm.com"
+            echo "DOMAIN-SUFFIX,muse.ai"
+          } >> build/ai.rules
+          sort -u build/ai.rules -o build/ai.rules
+
+          generate_ruleset() {
+            input=$1
+            output=$2
+            title=$3
+            domain_count=$(grep -c '^DOMAIN,' "$input" || true)
+            domain_suffix_count=$(grep -c '^DOMAIN-SUFFIX,' "$input" || true)
+            domain_keyword_count=$(grep -c '^DOMAIN-KEYWORD,' "$input" || true)
+            ip_cidr_count=$(grep -c '^IP-CIDR,' "$input" || true)
+            ip_asn_count=$(grep -c '^IP-ASN,' "$input" || true)
+            others_count=$(grep -Evc '^(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD|IP-CIDR|IP-ASN),' "$input" || true)
+            total_count=$((domain_count + domain_suffix_count + domain_keyword_count + ip_cidr_count + ip_asn_count + others_count))
+
+            {
+              echo "# $title 路由规则"
+              echo "# REPO: https://github.com/${{ github.repository }}"
+              echo "# UPDATED: $(date '+%Y-%m-%d %H:%M:%S')"
+              echo "# DOMAIN: $domain_count"
+              echo "# DOMAIN-KEYWORD: $domain_keyword_count"
+              echo "# DOMAIN-SUFFIX: $domain_suffix_count"
+              echo "# IP-ASN: $ip_asn_count"
+              echo "# IP-CIDR: $ip_cidr_count"
+              echo "# TOTAL: $total_count"
+              grep '^DOMAIN,' "$input" || true
+              grep '^DOMAIN-SUFFIX,' "$input" || true
+              grep '^DOMAIN-KEYWORD,' "$input" || true
+              grep '^IP-CIDR,' "$input" || true
+              grep '^IP-ASN,' "$input" || true
+              grep -Ev '^(DOMAIN|DOMAIN-SUFFIX|DOMAIN-KEYWORD|IP-CIDR|IP-ASN),' "$input" || true
+            } > "$output"
+          }
+
+          generate_ruleset build/OpenAI.rules Ruleset/OpenAI.list OpenAI
+          generate_ruleset build/ai.rules Ruleset/ai.list AI
+
+      - name: Check whether rules changed
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin release:refs/remotes/origin/release
+
+          for name in OpenAI ai; do
+            if ! git show "origin/release:Ruleset/$name.list" > "build/published-$name.list" 2>/dev/null; then
+              echo "SHOULD_PUBLISH=true" >> "$GITHUB_ENV"
+              exit 0
+            fi
+            sed '/^# UPDATED:/d' "build/published-$name.list" > "build/published-$name.compare"
+            sed '/^# UPDATED:/d' "Ruleset/$name.list" > "build/generated-$name.compare"
+            if ! cmp -s "build/published-$name.compare" "build/generated-$name.compare"; then
+              echo "SHOULD_PUBLISH=true" >> "$GITHUB_ENV"
+              exit 0
+            fi
+          done
+
+          echo "SHOULD_PUBLISH=false" >> "$GITHUB_ENV"
+          echo "Rules have not changed; skipping release"
 
       - name: Move files to publish directory
+        if: env.SHOULD_PUBLISH == 'true'
         run: |
           mkdir -p publish/Ruleset
-          cp Ruleset/OpenAI.list ./publish/Ruleset/
+          cp Ruleset/OpenAI.list Ruleset/ai.list publish/Ruleset/
 
       - name: Release and upload assets
-        uses: softprops/action-gh-release@v1
+        if: env.SHOULD_PUBLISH == 'true'
+        uses: softprops/action-gh-release@v3
         with:
           name: ${{ env.RELEASE_NAME }}
           tag_name: ${{ env.TAG_NAME }}
           draft: false
           prerelease: false
           files: |
-            ./publish/Ruleset/*
+            publish/Ruleset/*.list
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
 
-      - name: Git push assets to "release" branch
+      - name: Git push assets to release branch
+        if: env.SHOULD_PUBLISH == 'true'
         run: |
-          cd publish || exit 1
-          git init
+          auth_header=$(git config --local --get http.https://github.com/.extraheader)
+          cd publish
+          git init -b release
           git config --local user.name "github-actions[bot]"
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b release
+          git config --local http.https://github.com/.extraheader "$auth_header"
           git add .
           git commit -m "${{ env.RELEASE_NAME }}"
-          git remote add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
-          git push -f -u origin release
+          git remote add origin "https://github.com/${{ github.repository }}"
+          git push --force --set-upstream origin release
 
-      - name: Purge jsdelivr CDN
+      - name: Purge jsDelivr CDN
+        if: env.SHOULD_PUBLISH == 'true'
         run: |
-          cd publish || exit 1
-          for file in $(ls); do
-            curl -i "https://purge.jsdelivr.net/gh/${{ github.repository }}@release/${file}"
-          done
-          for file in $(ls ruleset); do
-            curl -i "https://purge.jsdelivr.net/gh/${{ github.repository }}@release/ruleset/${file}"
+          for file in publish/Ruleset/*.list; do
+            name=${file##*/}
+            curl --fail --show-error --silent --retry 3 \
+              "https://purge.jsdelivr.net/gh/${{ github.repository }}@release/Ruleset/$name" \
+              > /dev/null
           done
