@@ -1,0 +1,27 @@
+# Explicit overseas WebRTC service destinations; verified 2026-11-17.
+# Sources: LiveKit firewall docs, Cloudflare TURN docs, Twilio Video network docs, Google Meet network docs.
+DOMAIN-SUFFIX,livekit.cloud
+DOMAIN,stun.cloudflare.com
+DOMAIN,turn.cloudflare.com
+DOMAIN-SUFFIX,stun.twilio.com
+DOMAIN-SUFFIX,turn.twilio.com
+DOMAIN-SUFFIX,vss.twilio.com
+DOMAIN,sdkgw.us1.twilio.com
+DOMAIN,workspace.turns.goog
+DOMAIN,meet.turns.goog
+DOMAIN,meet.google.com
+DOMAIN,stream.meet.google.com
+DOMAIN,meetings.googleapis.com
+DOMAIN,hangouts.googleapis.com
+IP-CIDR,74.125.250.0/24,no-resolve
+IP-CIDR,74.125.247.128/32,no-resolve
+IP-CIDR,142.250.82.0/24,no-resolve
+IP-CIDR6,2001:4860:4864:5::/64,no-resolve
+IP-CIDR6,2001:4860:4864:4:8000::/128,no-resolve
+IP-CIDR6,2001:4860:4864:6::/64,no-resolve
+DOMAIN,stun.l.google.com
+DOMAIN,stun1.l.google.com
+DOMAIN,stun2.l.google.com
+DOMAIN,stun3.l.google.com
+DOMAIN,stun4.l.google.com
+DOMAIN,stun.nextcloud.com

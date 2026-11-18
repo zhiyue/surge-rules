@@ -97,7 +97,7 @@ jobs:
           set -euo pipefail
           git fetch --no-tags --depth=1 origin release:refs/remotes/origin/release
 
-          for name in OpenAI ai; do
+          for name in OpenAI ai chatgpt-voice webrtc-overseas; do
             if ! git show "origin/release:Ruleset/$name.list" > "build/published-$name.list" 2>/dev/null; then
               echo "SHOULD_PUBLISH=true" >> "$GITHUB_ENV"
               exit 0
@@ -117,7 +117,7 @@ jobs:
         if: env.SHOULD_PUBLISH == 'true'
         run: |
           mkdir -p publish/Ruleset
-          cp Ruleset/OpenAI.list Ruleset/ai.list publish/Ruleset/
+          cp Ruleset/{OpenAI,ai,chatgpt-voice,webrtc-overseas}.list publish/Ruleset/
 
       - name: Release and upload assets
         if: env.SHOULD_PUBLISH == 'true'
