@@ -1,6 +1,5 @@
 #!name=DNS Split
 #!desc=AI domains use proxied overseas DoH; domestic domains use direct encrypted DNS.
-#!system=mac
 
 [Host]
 anthropic.com = server:https://1.1.1.1/dns-query
