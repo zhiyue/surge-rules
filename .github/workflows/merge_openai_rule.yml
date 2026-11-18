@@ -15,6 +15,7 @@ on:
 
 env:
   OPENAI_RULES_URL: https://raw.githubusercontent.com/blackmatrix7/ios_rule_script/master/rule/Surge/OpenAI/OpenAI.list
+  TAG_MODULE_URL: https://profile.nvidia.cn.com/shadowrocket/tag.sgmodule
 
 jobs:
   build:
@@ -92,12 +93,19 @@ jobs:
           generate_ruleset build/OpenAI.rules Ruleset/OpenAI.list OpenAI
           generate_ruleset build/ai.rules Ruleset/ai.list AI
 
+      - name: Generate TAG Profile Lite
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent --location --retry 3 --max-time 30 \
+            --user-agent Surge "$TAG_MODULE_URL" --output build/tag-profile.source
+          python3 scripts/trim-tag-hosts.py build/tag-profile.source Modules/tag-profile-lite.sgmodule
+
       - name: Check whether rules changed
         run: |
           set -euo pipefail
           git fetch --no-tags --depth=1 origin release:refs/remotes/origin/release
 
-          for file in Ruleset/{OpenAI,ai,chatgpt-voice,webrtc-overseas}.list Modules/dns-split.sgmodule; do
+          for file in Ruleset/{OpenAI,ai,chatgpt-voice,webrtc-overseas}.list Modules/{dns-split,tag-profile-lite}.sgmodule; do
             name=${file##*/}
             if ! git show "origin/release:$file" > "build/published-$name" 2>/dev/null; then
               echo "SHOULD_PUBLISH=true" >> "$GITHUB_ENV"
@@ -119,7 +127,7 @@ jobs:
         run: |
           mkdir -p publish/Ruleset publish/Modules
           cp Ruleset/{OpenAI,ai,chatgpt-voice,webrtc-overseas}.list publish/Ruleset/
-          cp Modules/dns-split.sgmodule publish/Modules/
+          cp Modules/{dns-split,tag-profile-lite}.sgmodule publish/Modules/
 
       - name: Release and upload assets
         if: env.SHOULD_PUBLISH == 'true'
