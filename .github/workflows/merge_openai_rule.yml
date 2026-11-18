@@ -97,13 +97,14 @@ jobs:
           set -euo pipefail
           git fetch --no-tags --depth=1 origin release:refs/remotes/origin/release
 
-          for name in OpenAI ai chatgpt-voice webrtc-overseas; do
-            if ! git show "origin/release:Ruleset/$name.list" > "build/published-$name.list" 2>/dev/null; then
+          for file in Ruleset/{OpenAI,ai,chatgpt-voice,webrtc-overseas}.list Modules/dns-split.sgmodule; do
+            name=${file##*/}
+            if ! git show "origin/release:$file" > "build/published-$name" 2>/dev/null; then
               echo "SHOULD_PUBLISH=true" >> "$GITHUB_ENV"
               exit 0
             fi
-            sed '/^# UPDATED:/d' "build/published-$name.list" > "build/published-$name.compare"
-            sed '/^# UPDATED:/d' "Ruleset/$name.list" > "build/generated-$name.compare"
+            sed '/^# UPDATED:/d' "build/published-$name" > "build/published-$name.compare"
+            sed '/^# UPDATED:/d' "$file" > "build/generated-$name.compare"
             if ! cmp -s "build/published-$name.compare" "build/generated-$name.compare"; then
               echo "SHOULD_PUBLISH=true" >> "$GITHUB_ENV"
               exit 0
@@ -116,8 +117,9 @@ jobs:
       - name: Move files to publish directory
         if: env.SHOULD_PUBLISH == 'true'
         run: |
-          mkdir -p publish/Ruleset
+          mkdir -p publish/Ruleset publish/Modules
           cp Ruleset/{OpenAI,ai,chatgpt-voice,webrtc-overseas}.list publish/Ruleset/
+          cp Modules/dns-split.sgmodule publish/Modules/
 
       - name: Release and upload assets
         if: env.SHOULD_PUBLISH == 'true'
@@ -129,6 +131,7 @@ jobs:
           prerelease: false
           files: |
             publish/Ruleset/*.list
+            publish/Modules/*.sgmodule
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -149,9 +152,9 @@ jobs:
       - name: Purge jsDelivr CDN
         if: env.SHOULD_PUBLISH == 'true'
         run: |
-          for file in publish/Ruleset/*.list; do
-            name=${file##*/}
+          for file in publish/Ruleset/*.list publish/Modules/*.sgmodule; do
+            path=${file#publish/}
             curl --fail --show-error --silent --retry 3 \
-              "https://purge.jsdelivr.net/gh/${{ github.repository }}@release/Ruleset/$name" \
+              "https://purge.jsdelivr.net/gh/${{ github.repository }}@release/$path" \
               > /dev/null
           done
