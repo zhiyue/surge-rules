@@ -56,6 +56,7 @@ jobs:
             echo "DOMAIN-SUFFIX,meta.com"
             echo "DOMAIN-SUFFIX,metaaivm.com"
             echo "DOMAIN-SUFFIX,muse.ai"
+            echo "DOMAIN-SUFFIX,openrouter.ai"
           } >> build/ai.rules
           sort -u build/ai.rules -o build/ai.rules
 
