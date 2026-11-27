@@ -1,0 +1,10 @@
+#!name=DNS Split
+#!desc=AI domains use proxied overseas DoH; domestic domains use direct encrypted DNS.
+
+[Host]
+anthropic.com = server:https://1.1.1.1/dns-query
+*.anthropic.com = server:https://1.1.1.1/dns-query
+RULE-SET:https://cdn.jsdelivr.net/gh/blackmatrix7/ios_rule_script@master/rule/Surge/Anthropic/Anthropic.list = server:https://1.1.1.1/dns-query
+RULE-SET:https://raw.githubusercontent.com/zhiyue/surge-rules/release/Ruleset/ai.list = server:https://1.1.1.1/dns-query
+RULE-SET:https://raw.githubusercontent.com/zhiyue/surge-rules/release/Ruleset/webrtc-overseas.list = server:https://1.1.1.1/dns-query
+DOMAIN-SET:https://cdn.jsdelivr.net/gh/Loyalsoldier/surge-rules@release/direct.txt = server:https://223.5.5.5/dns-query
